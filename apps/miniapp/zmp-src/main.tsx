@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import './styles.css';
+import { BellIcon, CheckIcon, ChevronRightIcon, CompassIcon, HelpIcon, HomeIcon, MapPinIcon, MegaphoneIcon, MessageIcon, PhoneIcon, QrCodeIcon, SendIcon, TrophyIcon, UserIcon } from '../components/icons';
 
 const API_BASE = import.meta.env.VITE_API_BASE || 'https://nbd-api-t63a.onrender.com';
 
@@ -132,13 +133,21 @@ function App() {
       <nav className="tabbar">
         {(['home', 'explore', 'report', 'support'] as Tab[]).map((key) => (
           <button key={key} className={`tab ${tab === key ? 'tab-active' : ''}`} onClick={() => setTab(key)}>
-            <span className="tab-icon">{key === 'home' ? '⌂' : key === 'explore' ? '⌕' : key === 'report' ? '!' : '?'}</span>
+            <span className="tab-icon"><TabIcon tab={key} active={tab === key} /></span>
             <span className="tab-label">{labels[key]}</span>
           </button>
         ))}
       </nav>
     </div>
   );
+}
+
+function TabIcon({ tab, active }: { tab: Tab; active: boolean }) {
+  const props = { size: 22, strokeWidth: active ? 2 : 1.6 };
+  if (tab === 'home') return <HomeIcon {...props} />;
+  if (tab === 'explore') return <CompassIcon {...props} />;
+  if (tab === 'report') return <MegaphoneIcon {...props} />;
+  return <MessageIcon {...props} />;
 }
 
 function Home({ locale, setTab }: { locale: Locale; setTab: (tab: Tab) => void }) {
@@ -164,11 +173,13 @@ function Home({ locale, setTab }: { locale: Locale; setTab: (tab: Tab) => void }
           <p className="hero-sub">{hero?.subtitle || 'Thông tin, phản ánh, check-in và hỗ trợ du khách Núi Bà Đen.'}</p>
         </div>
       </section>
-      <section className="grid">
-        <button onClick={() => setTab('explore')}>Khám phá</button>
-        <button onClick={() => setTab('report')}>Phản ánh</button>
-        <button onClick={() => setTab('support')}>Hỗ trợ</button>
-        <button onClick={() => setTab('support')}>Check-in</button>
+      <section className="section">
+        <div className="shortcut-grid">
+          <button className="shortcut" onClick={() => setTab('explore')}><span className="shortcut-icon"><CompassIcon size={20} /></span><span>Khám phá</span></button>
+          <button className="shortcut" onClick={() => setTab('report')}><span className="shortcut-icon"><MegaphoneIcon size={20} /></span><span>Phản ánh</span></button>
+          <button className="shortcut" onClick={() => setTab('support')}><span className="shortcut-icon"><MessageIcon size={20} /></span><span>Hỗ trợ</span></button>
+          <button className="shortcut" onClick={() => setTab('support')}><span className="shortcut-icon"><MapPinIcon size={20} /></span><span>Check-in</span></button>
+        </div>
       </section>
       {error && <div className="notice error">{labels.error}</div>}
       {data?.alerts?.map((alert, index) => <div className="notice" key={index}>{alert}</div>)}
@@ -298,7 +309,7 @@ function Support({ locale }: { locale: Locale }) {
       <h2>{labels.support}</h2>
       <section className="section">
         <div className="card" style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-          <span className="list-row-icon" style={{ background: '#fef2f2', color: '#dc2626' }}>☎</span>
+          <span className="list-row-icon" style={{ background: '#fef2f2', color: '#dc2626' }}><PhoneIcon size={22} /></span>
           <div style={{ flex: 1 }}>
             <strong style={{ fontSize: 14 }}>Hotline hỗ trợ</strong>
             <div style={{ color: 'var(--text-secondary)', fontSize: 13 }}>0276 3900 000</div>
@@ -308,14 +319,14 @@ function Support({ locale }: { locale: Locale }) {
       </section>
       <section className="section">
         <div className="section-header"><h3 className="section-title">{labels.support}</h3></div>
-        <button className="list-row" onClick={() => setView('chat')}><span className="list-row-icon">💬</span><span className="list-row-body"><span className="list-row-title">{labels.chat}</span></span><span className="list-row-cta">›</span></button>
-        <button className="list-row" onClick={() => setView('checkin')}><span className="list-row-icon">📍</span><span className="list-row-body"><span className="list-row-title">{labels.checkin}</span></span><span className="list-row-cta">›</span></button>
-        <button className="list-row" onClick={() => setView('guides')}><span className="list-row-icon">?</span><span className="list-row-body"><span className="list-row-title">{labels.guides}</span></span><span className="list-row-cta">›</span></button>
-        <button className="list-row" onClick={() => setView('profile')}><span className="list-row-icon">👤</span><span className="list-row-body"><span className="list-row-title">{labels.profile}</span></span><span className="list-row-cta">›</span></button>
+        <button className="list-row" onClick={() => setView('chat')}><span className="list-row-icon"><MessageIcon size={20} /></span><span className="list-row-body"><span className="list-row-title">{labels.chat}</span></span><span className="list-row-cta"><ChevronRightIcon size={18} /></span></button>
+        <button className="list-row" onClick={() => setView('checkin')}><span className="list-row-icon"><MapPinIcon size={20} /></span><span className="list-row-body"><span className="list-row-title">{labels.checkin}</span></span><span className="list-row-cta"><ChevronRightIcon size={18} /></span></button>
+        <button className="list-row" onClick={() => setView('guides')}><span className="list-row-icon"><HelpIcon size={20} /></span><span className="list-row-body"><span className="list-row-title">{labels.guides}</span></span><span className="list-row-cta"><ChevronRightIcon size={18} /></span></button>
+        <button className="list-row" onClick={() => setView('profile')}><span className="list-row-icon"><UserIcon size={20} /></span><span className="list-row-body"><span className="list-row-title">{labels.profile}</span></span><span className="list-row-cta"><ChevronRightIcon size={18} /></span></button>
       </section>
       <section className="section">
         <div className="card" style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
-          <span className="list-row-icon">?</span>
+          <span className="list-row-icon"><HelpIcon size={20} /></span>
           <div><div style={{ fontWeight: 600, marginBottom: 2 }}>Cần trợ giúp khẩn cấp?</div><div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Liên hệ ngay đội an ninh / y tế tại điểm gần nhất hoặc sử dụng hotline.</div></div>
         </div>
       </section>
