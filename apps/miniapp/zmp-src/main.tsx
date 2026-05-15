@@ -116,7 +116,7 @@ function App() {
     <div className="app-shell">
       <header className="appbar">
         <div className="appbar-left">
-          <span className="appbar-logo">NBĐ</span>
+          <span className="appbar-logo">NB</span>
           <h1 className="appbar-title">{labels.brand}</h1>
         </div>
         <button className="appbar-locale" onClick={() => setLocale(locale === 'vi' ? 'en' : 'vi')}>
@@ -296,13 +296,29 @@ function Support({ locale }: { locale: Locale }) {
   return (
     <>
       <h2>{labels.support}</h2>
-      <section className="card menu">
-        <button onClick={() => setView('chat')}>{labels.chat}</button>
-        <button onClick={() => setView('checkin')}>{labels.checkin}</button>
-        <button onClick={() => setView('guides')}>{labels.guides}</button>
-        <button onClick={() => setView('profile')}>{labels.profile}</button>
+      <section className="section">
+        <div className="card" style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+          <span className="list-row-icon" style={{ background: '#fef2f2', color: '#dc2626' }}>☎</span>
+          <div style={{ flex: 1 }}>
+            <strong style={{ fontSize: 14 }}>Hotline hỗ trợ</strong>
+            <div style={{ color: 'var(--text-secondary)', fontSize: 13 }}>0276 3900 000</div>
+          </div>
+          <a className="btn-secondary" style={{ padding: '8px 14px', borderRadius: 12, fontWeight: 600, fontSize: 13 }} href="tel:02763900000">Gọi</a>
+        </div>
       </section>
-      <p className="muted">Chatbot, QR check-in, hướng dẫn và hồ sơ du khách đã nối API chính thức.</p>
+      <section className="section">
+        <div className="section-header"><h3 className="section-title">{labels.support}</h3></div>
+        <button className="list-row" onClick={() => setView('chat')}><span className="list-row-icon">💬</span><span className="list-row-body"><span className="list-row-title">{labels.chat}</span></span><span className="list-row-cta">›</span></button>
+        <button className="list-row" onClick={() => setView('checkin')}><span className="list-row-icon">📍</span><span className="list-row-body"><span className="list-row-title">{labels.checkin}</span></span><span className="list-row-cta">›</span></button>
+        <button className="list-row" onClick={() => setView('guides')}><span className="list-row-icon">?</span><span className="list-row-body"><span className="list-row-title">{labels.guides}</span></span><span className="list-row-cta">›</span></button>
+        <button className="list-row" onClick={() => setView('profile')}><span className="list-row-icon">👤</span><span className="list-row-body"><span className="list-row-title">{labels.profile}</span></span><span className="list-row-cta">›</span></button>
+      </section>
+      <section className="section">
+        <div className="card" style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+          <span className="list-row-icon">?</span>
+          <div><div style={{ fontWeight: 600, marginBottom: 2 }}>Cần trợ giúp khẩn cấp?</div><div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Liên hệ ngay đội an ninh / y tế tại điểm gần nhất hoặc sử dụng hotline.</div></div>
+        </div>
+      </section>
     </>
   );
 }
