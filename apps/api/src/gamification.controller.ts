@@ -1,5 +1,6 @@
-import { Body, Controller, Get, Post, Query } from '@nestjs/common';
+import { Body, Controller, Get, Headers, Post, Query } from '@nestjs/common';
 import { DEFAULT_LOCALE, type Locale, MVP_DEFAULTS } from '@nui-ba-den/shared';
+import { hashToken, parseBearer } from './auth-utils';
 import { getSupabase } from './supabase';
 
 interface CheckinBody {
@@ -18,7 +19,7 @@ const ANON_USER_KEY = 'mvp-anonymous';
 @Controller()
 export class GamificationController {
   @Post('checkins')
-  async checkIn(@Body() body: CheckinBody, @Query('locale') localeParam?: Locale) {
+  async checkIn(@Body() body: CheckinBody, @Query('locale') localeParam?: Locale, @Headers('authorization') auth?: string) {
     const locale = pickLocale(localeParam);
     const sb = getSupabase();
 
@@ -56,7 +57,7 @@ export class GamificationController {
       );
     }
 
-    const user = await ensureAnonymousUser();
+    const user = await resolveAppUser(auth);
 
     const sinceIso = new Date(Date.now() - REPEAT_WINDOW_MINUTES * 60_000).toISOString();
     const { data: recent } = await sb
@@ -98,10 +99,10 @@ export class GamificationController {
   }
 
   @Get('profile')
-  async profile(@Query('locale') localeParam?: Locale) {
+  async profile(@Query('locale') localeParam?: Locale, @Headers('authorization') auth?: string) {
     const locale = pickLocale(localeParam);
     const sb = getSupabase();
-    const user = await ensureAnonymousUser();
+    const user = await resolveAppUser(auth);
 
     const [checkinsRes, badgeCatalogRes, userBadgesRes, reportsRes] = await Promise.all([
       sb
@@ -180,6 +181,20 @@ function haversine(lat1: number, lon1: number, lat2: number, lon2: number) {
     Math.sin(dLat / 2) ** 2 +
     Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
   return 2 * R * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+async function resolveAppUser(auth?: string) {
+  const token = parseBearer(auth);
+  if (!token) return ensureAnonymousUser();
+  const sb = getSupabase();
+  const { data } = await sb
+    .from('app_sessions')
+    .select('user_id, expires_at, revoked_at, app_users:user_id(id, display_name)')
+    .eq('token_hash', hashToken(token))
+    .maybeSingle();
+  if (!data || data.revoked_at || new Date(data.expires_at) < new Date()) return ensureAnonymousUser();
+  const user = Array.isArray(data.app_users) ? data.app_users[0] : data.app_users;
+  return user || ensureAnonymousUser();
 }
 
 async function ensureAnonymousUser() {

@@ -527,10 +527,17 @@ function Checkin({ locale, initialPoiSlug, initialQrValue, onBack }: { locale: L
   const [poi, setPoi] = useState<Poi | null>(null);
   const [loading, setLoading] = useState(false);
   const [autoSubmitted, setAutoSubmitted] = useState(false);
+  const [history, setHistory] = useState<ProfilePayload['recentCheckins']>([]);
 
   useEffect(() => {
     getGps().then(setCoords).catch(() => setCoords(null));
   }, []);
+
+  useEffect(() => {
+    apiGet<ProfilePayload>('/profile', locale)
+      .then((res) => setHistory(res.recentCheckins || []))
+      .catch(() => setHistory([]));
+  }, [locale, message]);
 
   useEffect(() => {
     if (!poiSlug) { setPoi(null); return; }
@@ -547,9 +554,10 @@ function Checkin({ locale, initialPoiSlug, initialQrValue, onBack }: { locale: L
     try {
       const res = await scanQRCode({});
       const content = (res as any).content || '';
-      setQrValue(content);
-      const found = content.match(/poi=([^&]+)/)?.[1] || content.match(/poi:([\w-]+)/)?.[1];
-      if (found) setPoiSlug(decodeURIComponent(found));
+      const foundPoi = content.match(/poi=([^&]+)/)?.[1] || content.match(/poi:([\w-]+)/)?.[1];
+      const foundQr = content.match(/qr=([^&]+)/)?.[1] || content.match(/qr:([\w-]+)/)?.[1];
+      setQrValue(decodeURIComponent(foundQr || content));
+      if (foundPoi) setPoiSlug(decodeURIComponent(foundPoi));
     } catch {
       setMessage('Không quét được QR');
     }
@@ -587,24 +595,23 @@ function Checkin({ locale, initialPoiSlug, initialQrValue, onBack }: { locale: L
           </div>
         </section>
       )}
-      <section className="card form">
-        <div className="field">
-          <label className="field-label">POI slug</label>
-          <input className="input" value={poiSlug} onChange={(e) => setPoiSlug(e.target.value)} placeholder="ba-den-peak" />
-        </div>
-        <div className="field">
-          <label className="field-label">QR code</label>
-          <div className="inline-field-row">
-            <input className="input" value={qrValue} onChange={(e) => setQrValue(e.target.value)} placeholder="NBD-PEAK-001" />
-            <button type="button" className="btn-secondary qr-btn" onClick={scanQr}><QrCodeIcon size={16} /> QR</button>
-          </div>
-        </div>
+      <section className="card checkin-card">
+        <button type="button" className="qr-scan-button" onClick={scanQr} disabled={loading}>
+          <QrCodeIcon size={28} />
+          <span>Quét mã QR tại điểm check-in</span>
+        </button>
+        {qrValue && <div className="notice">QR: {qrValue}</div>}
         <div className="field">
           <label className="field-label">GPS</label>
           <div className="notice">{coords ? `${coords.lat.toFixed(5)}, ${coords.lng.toFixed(5)}` : 'Chưa có quyền vị trí'}</div>
         </div>
-        <button className="btn" disabled={loading} onClick={submit}><CheckIcon size={18} /> {loading ? labels.loading : labels.checkin}</button>
+        <button className="btn" disabled={loading || !qrValue || !poiSlug} onClick={submit}><CheckIcon size={18} /> {loading ? labels.loading : labels.checkin}</button>
         {message && <div className={`notice ${message.includes('Chưa hợp lệ') || message === labels.error ? 'error' : ''}`}>{message}</div>}
+      </section>
+      <h3 className="section-title">Lịch sử check-in</h3>
+      <section className="card compact-list">
+        {history?.length === 0 && <div className="empty">{labels.empty}</div>}
+        {history?.map((item) => <div className="compact-row" key={item.id}><span>{item.poiTitle}</span><time>{new Date(item.at).toLocaleString('vi-VN')}</time></div>)}
       </section>
     </>
   );
@@ -691,7 +698,7 @@ function Profile({ locale, onBack }: { locale: Locale; onBack: () => void }) {
     try {
       const user = await fetchMe();
       const payload = await apiGet<ProfilePayload>('/profile', locale).catch(() => null);
-      setProfile(payload ? { ...payload, user: payload.user || user } : user ? { user } : null);
+      setProfile(payload ? { ...payload, user: user || payload.user } : user ? { user } : null);
     } finally {
       setLoading(false);
     }
