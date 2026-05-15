@@ -71,8 +71,9 @@ export class AdminAuthController {
       };
     } catch (err) {
       if (err instanceof BadRequestException) throw err;
-      console.error('admin_login_failed', { stage, err });
-      throw new InternalServerErrorException(`admin_login_failed:${stage}`);
+      const message = err instanceof Error ? err.message : String(err);
+      console.error('admin_login_failed', { stage, message, err });
+      throw new InternalServerErrorException(`admin_login_failed:${stage}:${message}`);
     }
   }
 
