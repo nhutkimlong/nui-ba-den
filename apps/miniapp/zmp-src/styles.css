@@ -210,3 +210,184 @@ button.card { display: flex; border: 1px solid var(--border); background: var(--
   .shortcut { padding: 10px 6px; font-size: 10px; }
   .app-content { padding-inline: 12px; }
 }
+
+:root {
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --tabbar-base-height: 68px;
+  --tabbar-height: calc(var(--tabbar-base-height) + var(--safe-bottom));
+}
+
+button {
+  appearance: none;
+  -webkit-appearance: none;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  padding: 0;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible,
+.card[role="button"]:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.appbar {
+  z-index: 30;
+  transform: translateZ(0);
+}
+
+.app-content {
+  min-height: calc(100dvh - var(--appbar-height) - var(--tabbar-height));
+  padding-bottom: calc(var(--tabbar-height) + 24px);
+}
+
+.tabbar {
+  height: var(--tabbar-height);
+  padding-bottom: var(--safe-bottom);
+  z-index: 20;
+}
+
+.appbar-locale,
+.back-btn,
+.btn-secondary,
+.chips button {
+  min-height: 44px;
+}
+
+.back-btn {
+  padding: 10px 0;
+}
+
+a.btn-secondary,
+button.btn-secondary {
+  background: var(--primary-soft);
+  color: var(--primary);
+  border: 1px solid transparent;
+}
+
+.chips button {
+  padding: 10px 14px;
+}
+
+.chat-shell {
+  padding-bottom: 96px;
+}
+
+.chat-shell .chips button {
+  min-height: 36px;
+  padding: 6px 12px;
+}
+
+.chat-composer-inline {
+  bottom: calc(var(--tabbar-height) + 8px);
+  z-index: 25;
+}
+
+.form input,
+.form textarea,
+.form select,
+.chat-composer-inline input {
+  font-size: 16px;
+}
+
+.form .notice {
+  margin-bottom: 0;
+}
+
+.form > div[style*="display: flex"] {
+  min-width: 0;
+}
+
+.form > div[style*="display: flex"] input {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.qr-btn {
+  min-width: 64px;
+  min-height: 44px;
+  white-space: nowrap;
+}
+
+.row {
+  min-width: 0;
+}
+
+.row > * {
+  min-width: 0;
+}
+
+.row > span:first-child,
+.row strong,
+.row p {
+  overflow-wrap: anywhere;
+}
+
+.card.row .primary,
+.card.row .btn-secondary {
+  flex: 1 1 140px;
+  width: auto;
+}
+
+.card > img,
+.detail-card > img,
+.card[role="button"] img {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  height: auto;
+  max-height: none;
+  object-fit: cover;
+  border-radius: 16px;
+  margin-bottom: 12px;
+  background: linear-gradient(135deg, #cfd9eb 0%, #eef3fb 100%);
+}
+
+.card[role="button"] {
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.list-row > img {
+  width: 56px;
+  height: 56px;
+  border-radius: 12px;
+  object-fit: cover;
+  flex: 0 0 56px;
+  background: var(--surface-2);
+}
+
+.app-content > .section-title,
+.app-content h3.section-title {
+  margin: 18px 0 10px;
+}
+
+.shortcut {
+  min-width: 0;
+}
+
+.shortcut span:last-child {
+  overflow-wrap: anywhere;
+  line-height: 1.2;
+}
+
+.tag,
+.pill {
+  max-width: 100%;
+  width: auto;
+}
+
+.tag {
+  overflow-wrap: anywhere;
+}
