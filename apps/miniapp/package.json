@@ -3,9 +3,13 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev --port 3000",
-    "build": "next build",
+    "dev": "vite --host 0.0.0.0 --port 3000",
+    "dev:next": "next dev --port 3000",
+    "build": "vite build",
+    "build:next": "next build",
     "start": "next start --port 3000",
+    "zmp:sync": "zmp sync-config www/index.html --root-element #app && node -e \"require('fs').copyFileSync('app-config.json','www/app-config.json')\"",
+    "zmp:deploy": "pnpm build && pnpm zmp:sync && zmp deploy --testing --existing --outputDir www --desc \"ZMP Vite build\"",
     "lint": "next lint",
     "typecheck": "tsc --noEmit"
   },
@@ -20,6 +24,9 @@
     "@types/node": "^20.12.12",
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",
-    "typescript": "^5.4.5"
+    "@vitejs/plugin-react": "^6.0.2",
+    "typescript": "^5.4.5",
+    "vite": "^8.0.13",
+    "zmp-ui": "^1.11.14"
   }
 }

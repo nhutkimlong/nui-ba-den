@@ -1,0 +1,18 @@
+{
+  "app": {
+    "title": "Núi Bà Đen",
+    "headerTitle": "Núi Bà Đen",
+    "headerColor": "#0B5FD7",
+    "textColor": "white",
+    "leftButton": "back",
+    "statusBar": "normal",
+    "actionBarHidden": false
+  },
+  "listCSS": [
+    "assets/style.css"
+  ],
+  "listSyncJS": [
+    "assets/app.js"
+  ],
+  "listAsyncJS": []
+}

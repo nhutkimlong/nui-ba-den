@@ -1,0 +1,57 @@
+@import '../app/styles/base.css';
+@import '../app/styles/layout.css';
+@import '../app/styles/components.css';
+@import '../app/styles/forms.css';
+@import '../app/styles/chat.css';
+
+button { border: 0; background: transparent; }
+.appbar { color: var(--text-primary); }
+.app-content { min-height: calc(100dvh - var(--appbar-height)); }
+.grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 18px; }
+.grid button {
+  display: flex;
+  min-height: 72px;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  color: var(--text-primary);
+  font-size: 11px;
+  font-weight: 600;
+  box-shadow: var(--shadow-sm);
+}
+.chips { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 8px; margin-bottom: 12px; }
+.chips button {
+  flex: 0 0 auto;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 8px 12px;
+  background: var(--surface);
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+}
+.chips .on { background: var(--primary); border-color: var(--primary); color: #fff; }
+.form { display: flex; flex-direction: column; gap: 10px; }
+.form label { font-size: 13px; font-weight: 600; color: var(--text-secondary); }
+.form input, .form textarea, .form select {
+  width: 100%;
+  border: 1px solid var(--border-strong);
+  border-radius: 12px;
+  padding: 11px 12px;
+  background: var(--surface);
+  color: var(--text-primary);
+}
+.primary, .menu button {
+  width: 100%;
+  border-radius: 14px;
+  padding: 12px 14px;
+  background: var(--primary);
+  color: #fff;
+  font-weight: 700;
+}
+.menu { display: flex; flex-direction: column; gap: 10px; }
+.notice { margin-bottom: 8px; }
+.muted { color: var(--text-secondary); font-size: 13px; line-height: 1.5; }
