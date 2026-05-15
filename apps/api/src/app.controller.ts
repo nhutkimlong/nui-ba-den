@@ -13,6 +13,14 @@ export class AppController {
   @Get('zalo_verifierH_QoAeBoDWfXxBWnglvkQaFmkqYlXcqGDZKn.html')
   @Header('content-type', 'text/html; charset=utf-8')
   getZaloVerifier() {
-    return 'zalo-platform-site-verification=H_QoAeBoDWfXxBWnglvkQaFmkqYlXcqGDZKn';
+    return `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta property="zalo-platform-site-verification" content="H_QoAeBoDWfXxBWnglvkQaFmkqYlXcqGDZKn" />
+</head>
+<body>
+There Is No Limit To What You Can Accomplish Using Zalo!
+</body>
+</html>`;
   }
 }
