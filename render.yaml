@@ -1,0 +1,68 @@
+services:
+  - type: web
+    name: nbd-api
+    runtime: node
+    plan: free
+    region: singapore
+    rootDir: apps/api
+    buildCommand: corepack enable && corepack prepare pnpm@10.0.0 --activate && cd ../.. && pnpm install --no-frozen-lockfile && pnpm --filter api build
+    startCommand: node dist/main.js
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: NODE_VERSION
+        value: 20.18.0
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: LLM_BASE_URL
+        value: https://ry4rkyf.9router.com/v1
+      - key: LLM_API_KEY
+        sync: false
+      - key: LLM_MODEL
+        value: CrawBot
+      - key: ZALO_APP_ID
+        sync: false
+      - key: ZALO_APP_SECRET
+        sync: false
+      - key: ZALO_REDIRECT_URI
+        sync: false
+      - key: MINIAPP_BASE_URL
+        sync: false
+
+  - type: web
+    name: nbd-admin
+    runtime: node
+    plan: free
+    region: singapore
+    rootDir: apps/admin
+    buildCommand: corepack enable && corepack prepare pnpm@10.0.0 --activate && cd ../.. && pnpm install --no-frozen-lockfile && pnpm --filter admin build
+    startCommand: cd ../.. && pnpm --filter admin exec next start -p $PORT
+    autoDeploy: true
+    envVars:
+      - key: NODE_VERSION
+        value: 20.18.0
+      - key: NEXT_PUBLIC_API_BASE
+        fromService:
+          type: web
+          name: nbd-api
+          property: host
+
+  - type: web
+    name: nbd-miniapp
+    runtime: node
+    plan: free
+    region: singapore
+    rootDir: apps/miniapp
+    buildCommand: corepack enable && corepack prepare pnpm@10.0.0 --activate && cd ../.. && pnpm install --no-frozen-lockfile && pnpm --filter miniapp build
+    startCommand: cd ../.. && pnpm --filter miniapp exec next start -p $PORT
+    autoDeploy: true
+    envVars:
+      - key: NODE_VERSION
+        value: 20.18.0
+      - key: NEXT_PUBLIC_API_BASE
+        fromService:
+          type: web
+          name: nbd-api
+          property: host
