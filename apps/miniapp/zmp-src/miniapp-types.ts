@@ -1,5 +1,6 @@
 export type Tab = 'home' | 'explore' | 'report' | 'support';
 export type SupportView = 'menu' | 'chat' | 'checkin' | 'guides' | 'profile';
+export type SupportParams = { poiSlug?: string; qrValue?: string; chatContext?: string };
 
 export type Poi = {
   id: string;
@@ -9,9 +10,9 @@ export type Poi = {
   shortDescription?: string;
   longDescription?: string;
   qrCodeValue?: string;
-  latitude?: number;
-  longitude?: number;
-  imageUrl?: string;
+  latitude?: number | null;
+  longitude?: number | null;
+  imageUrl?: string | null;
 };
 
 export type HomePayload = {
@@ -46,5 +47,24 @@ export type ChatMessage = {
   feedback?: 'helpful' | 'unhelpful';
 };
 
-export type GuideItem = { id: string; slug?: string; title: string; summary?: string; coverImageUrl?: string };
-export type GuideDetail = GuideItem & { content?: string };
+export type GuideItem = { id: string; slug?: string; title: string; summary?: string; coverImageUrl?: string | null };
+export type GuideDetail = GuideItem & { bodyMd?: string; content?: string; publishedAt?: string | null; error?: string };
+
+export type AppUser = {
+  id: string;
+  display_name?: string | null;
+  name?: string | null;
+  avatar_url?: string | null;
+  avatar?: string | null;
+  preferred_locale?: 'vi' | 'en';
+  zalo_user_id?: string | null;
+};
+
+export type ProfilePayload = {
+  user?: AppUser | null;
+  stats?: { checkins?: number; reports?: number; badges?: number };
+  badges?: { id: string; name: string; achieved?: boolean }[];
+  recentCheckins?: { id: string; poiTitle: string; at: string }[];
+};
+
+export type CheckinResult = { ok: boolean; message: string; badge?: string };

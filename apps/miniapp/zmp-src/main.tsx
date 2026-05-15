@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { getPhoneNumber, getUserInfo, scanQRCode } from 'zmp-sdk/apis';
+import { getPhoneNumber, scanQRCode } from 'zmp-sdk/apis';
 import './styles.css';
 import { CheckIcon, ChevronRightIcon, CompassIcon, HelpIcon, HomeIcon, MapPinIcon, MegaphoneIcon, MessageIcon, PhoneIcon, QrCodeIcon, UserIcon } from '../components/icons';
-import { apiGet, apiPost, apiUpload, getGps, TOKEN_KEY, type Coords, type Locale } from './miniapp-api-client';
-import type { ChatMessage, ExplorePayload, GuideDetail, GuideItem, HomePayload, Poi, ReportDetail, ReportItem, SupportView, Tab } from './miniapp-types';
+import { apiGet, apiPost, apiUpload, fetchMe, getGps, loginWithZmp, logoutUser, type Coords, type Locale } from './miniapp-api-client';
+import type { ChatMessage, CheckinResult, ExplorePayload, GuideDetail, GuideItem, HomePayload, Poi, ProfilePayload, ReportDetail, ReportItem, SupportParams, SupportView, Tab } from './miniapp-types';
 
 const CHAT_STORAGE_KEY = 'nbd_chat_history';
 
@@ -64,9 +64,12 @@ function App() {
   const [tab, setTab] = useState<Tab>('home');
   const [locale, setLocale] = useState<Locale>('vi');
   const [supportView, setSupportView] = useState<SupportView>('menu');
+  const [supportParams, setSupportParams] = useState<SupportParams>({});
+  const [exploreSlug, setExploreSlug] = useState('');
   const labels = t[locale];
 
-  function openSupport(view: SupportView) {
+  function openSupport(view: SupportView, params: SupportParams = {}) {
+    setSupportParams(params);
     setSupportView(view);
     setTab('support');
   }
@@ -83,10 +86,10 @@ function App() {
         </button>
       </header>
       <main className="app-content">
-        {tab === 'home' && <Home locale={locale} setTab={setTab} openSupport={openSupport} />}
-        {tab === 'explore' && <Explore locale={locale} openSupport={openSupport} />}
+        {tab === 'home' && <Home locale={locale} setTab={setTab} openSupport={openSupport} openPoi={(slug: string) => { setExploreSlug(slug); setTab('explore'); }} />}
+        {tab === 'explore' && <Explore locale={locale} selectedSlug={exploreSlug} setSelected={setExploreSlug} openSupport={openSupport} />}
         {tab === 'report' && <Report locale={locale} />}
-        {tab === 'support' && <Support locale={locale} view={supportView} setView={setSupportView} />}
+        {tab === 'support' && <Support locale={locale} view={supportView} setView={setSupportView} params={supportParams} setParams={setSupportParams} />}
       </main>
       <nav className="tabbar">
         {(['home', 'explore', 'report', 'support'] as Tab[]).map((key) => (
@@ -108,7 +111,7 @@ function TabIcon({ tab, active }: { tab: Tab; active: boolean }) {
   return <MessageIcon {...props} />;
 }
 
-function Home({ locale, setTab, openSupport }: { locale: Locale; setTab: (tab: Tab) => void; openSupport: (view: SupportView) => void }) {
+function Home({ locale, setTab, openSupport, openPoi }: { locale: Locale; setTab: (tab: Tab) => void; openSupport: (view: SupportView, params?: SupportParams) => void; openPoi: (slug: string) => void }) {
   const labels = t[locale];
   const [data, setData] = useState<HomePayload | null>(null);
   const [error, setError] = useState(false);
@@ -143,16 +146,16 @@ function Home({ locale, setTab, openSupport }: { locale: Locale; setTab: (tab: T
       {data?.alerts?.map((alert, index) => <div className="notice" key={index}>{alert}</div>)}
       <h3>{labels.featured}</h3>
       {!data && !error && <div className="empty">{labels.loading}</div>}
-      {data?.featuredPois?.map((poi) => <PoiCard key={poi.id} poi={poi} />)}
+      {data?.featuredPois?.map((poi) => <PoiCard key={poi.id} poi={poi} onClick={() => openPoi(poi.slug)} />)}
     </>
   );
 }
 
-function Explore({ locale, openSupport }: { locale: Locale; openSupport: (view: SupportView) => void }) {
+function Explore({ locale, selectedSlug, setSelected, openSupport }: { locale: Locale; selectedSlug: string; setSelected: (slug: string) => void; openSupport: (view: SupportView, params?: SupportParams) => void }) {
   const labels = t[locale];
   const [data, setData] = useState<ExplorePayload | null>(null);
   const [active, setActive] = useState<string>('');
-  const [selected, setSelected] = useState<string>('');
+  const selected = selectedSlug;
   const [detail, setDetail] = useState<Poi | null>(null);
 
   useEffect(() => {
@@ -187,8 +190,8 @@ function Explore({ locale, openSupport }: { locale: Locale; openSupport: (view: 
             <p>{detail.longDescription || detail.shortDescription}</p>
             {detail.latitude && detail.longitude && <div className="notice">GPS: {detail.latitude}, {detail.longitude}</div>}
             <div className="menu">
-              <button onClick={() => openSupport('checkin')}><QrCodeIcon size={18} /> Check-in tại điểm này</button>
-              <button onClick={() => openSupport('chat')}><MessageIcon size={18} /> Hỏi chatbot về điểm này</button>
+              <button onClick={() => openSupport('checkin', { poiSlug: detail.slug, qrValue: detail.qrCodeValue || '' })}><QrCodeIcon size={18} /> Check-in tại điểm này</button>
+              <button onClick={() => openSupport('chat', { chatContext: `poi:${detail.slug}` })}><MessageIcon size={18} /> Hỏi chatbot về điểm này</button>
             </div>
           </article>
         )}
@@ -237,6 +240,9 @@ function Report({ locale }: { locale: Locale }) {
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoLabel, setPhotoLabel] = useState('');
   const [phoneToken, setPhoneToken] = useState('');
+  const [sharePhone, setSharePhone] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [historyOnly, setHistoryOnly] = useState(false);
   const categories = [
     { id: 'service', label: 'Dịch vụ' },
     { id: 'security_order', label: 'An ninh/trật tự' },
@@ -283,23 +289,36 @@ function Report({ locale }: { locale: Locale }) {
   }
 
   async function submit() {
-    if (!description.trim()) return;
+    if (!description.trim() || submitting) return;
+    setSubmitting(true);
     setMessage(labels.loading);
     try {
-      const res = await apiPost<{ code: string }>('/reports', { category, description, location, coords, contactPhoneToken: phoneToken || undefined }, locale);
+      const res = await apiPost<{ code: string }>('/reports', { category, description, location, coords, contactPhoneToken: sharePhone ? phoneToken || undefined : undefined }, locale);
       if (photoFile) await apiUpload(`/reports/${res.code}/attachments`, photoFile, locale);
       setDescription('');
       setLocation('');
       setCoords(null);
       setPhoneToken('');
+      setSharePhone(false);
       setPhotoFile(null);
       setPhotoLabel('');
       setMessage(`${labels.submitted}: ${res.code}`);
       openDetail(res.code);
     } catch {
       setMessage(labels.error);
+    } finally {
+      setSubmitting(false);
     }
   }
+
+  const statusText = (status: string) => ({
+    new: 'Mới',
+    triaged: 'Đã phân loại',
+    in_progress: 'Đang xử lý',
+    resolved: 'Đã xử lý',
+    rejected: 'Từ chối',
+    needs_more_info: 'Cần thêm thông tin',
+  } as Record<string, string>)[status] || status;
 
   if (detail) {
     return (
@@ -308,15 +327,34 @@ function Report({ locale }: { locale: Locale }) {
         <h2>{detail.code}</h2>
         <section className="card">
           <div className="tag">{detail.category}</div>
-          <h3>{detail.status}</h3>
+          <h3>{statusText(detail.status)}</h3>
           <p>{detail.description}</p>
           {detail.location && <div className="notice">{detail.location}</div>}
         </section>
         <h3>Timeline</h3>
         {(detail.timeline || []).map((entry, index) => (
           <article className="card row" key={`${entry.status}-${index}`}>
-            <div><strong>{entry.status}</strong><p>{entry.note || entry.at}</p></div>
+            <div><strong>{statusText(entry.status)}</strong><p>{entry.note || new Date(entry.at).toLocaleString(locale === 'vi' ? 'vi-VN' : 'en-US')}</p></div>
           </article>
+        ))}
+      </>
+    );
+  }
+
+  if (historyOnly) {
+    return (
+      <>
+        <BackButton onBack={() => setHistoryOnly(false)} />
+        <h2>{labels.history}</h2>
+        {history.length === 0 && <div className="empty">{labels.empty}</div>}
+        {history.map((item) => (
+          <button className="card row" key={item.id} onClick={() => openDetail(item.code)}>
+            <div>
+              <strong>{item.code}</strong>
+              <p>{item.category} · {new Date(item.createdAt).toLocaleString(locale === 'vi' ? 'vi-VN' : 'en-US')}</p>
+            </div>
+            <span className="pill">{statusText(item.status)}</span>
+          </button>
         ))}
       </>
     );
@@ -325,6 +363,7 @@ function Report({ locale }: { locale: Locale }) {
   return (
     <>
       <h2>{labels.report}</h2>
+      <button className="btn-secondary" onClick={() => setHistoryOnly(true)}>{labels.history}</button>
       <section className="card form">
         <label>{labels.category}</label>
         <select value={category} onChange={(e) => setCategory(e.target.value)}>
@@ -338,34 +377,28 @@ function Report({ locale }: { locale: Locale }) {
           <button type="button" className="btn-secondary qr-btn" onClick={requestGps}><MapPinIcon size={16} /> GPS</button>
         </div>
         <label>Ảnh</label>
-        <input type="file" accept="image/*" onChange={(e) => { const file = e.target.files?.[0] || null; setPhotoFile(file); setPhotoLabel(file?.name || ''); }} />
+        <input type="file" accept="image/*" capture="environment" onChange={(e) => { const file = e.target.files?.[0] || null; setPhotoFile(file); setPhotoLabel(file ? `${file.name} (${Math.round(file.size / 1024)} KB)` : ''); }} />
         {photoLabel && <div className="muted">{photoLabel}</div>}
-        <button type="button" className="btn-secondary" onClick={requestPhone}>Chia sẻ số điện thoại</button>
-        <button className="primary" onClick={submit}>{labels.send}</button>
+        <label style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <input type="checkbox" checked={sharePhone} onChange={(e) => setSharePhone(e.target.checked)} />
+          Chia sẻ số điện thoại để ban quản lý liên hệ
+        </label>
+        {sharePhone && <button type="button" className="btn-secondary" onClick={requestPhone}>{phoneToken ? 'Đã nhận token số điện thoại' : 'Lấy token số điện thoại'}</button>}
+        <button className="primary" disabled={submitting} onClick={submit}>{submitting ? labels.loading : labels.send}</button>
         {message && <div className="notice">{message}</div>}
       </section>
-      <h3>{labels.history}</h3>
-      {history.length === 0 && <div className="empty">{labels.empty}</div>}
-      {history.map((item) => (
-        <button className="card row" key={item.id} onClick={() => openDetail(item.code)}>
-          <div>
-            <strong>{item.code}</strong>
-            <p>{item.category}</p>
-          </div>
-          <span className="pill">{item.status}</span>
-        </button>
-      ))}
     </>
   );
 }
 
-function Support({ locale, view, setView }: { locale: Locale; view: SupportView; setView: (view: SupportView) => void }) {
+function Support({ locale, view, setView, params, setParams }: { locale: Locale; view: SupportView; setView: (view: SupportView) => void; params: SupportParams; setParams: (params: SupportParams) => void }) {
   const labels = t[locale];
+  const backToMenu = () => { setParams({}); setView('menu'); };
 
-  if (view === 'chat') return <Chat locale={locale} onBack={() => setView('menu')} />;
-  if (view === 'checkin') return <Checkin locale={locale} onBack={() => setView('menu')} />;
-  if (view === 'guides') return <Guides locale={locale} onBack={() => setView('menu')} />;
-  if (view === 'profile') return <Profile locale={locale} onBack={() => setView('menu')} />;
+  if (view === 'chat') return <Chat locale={locale} context={params.chatContext} onBack={backToMenu} />;
+  if (view === 'checkin') return <Checkin locale={locale} initialPoiSlug={params.poiSlug} initialQrValue={params.qrValue} onBack={backToMenu} />;
+  if (view === 'guides') return <Guides locale={locale} onBack={backToMenu} />;
+  if (view === 'profile') return <Profile locale={locale} onBack={backToMenu} />;
 
   return (
     <>
@@ -401,7 +434,7 @@ function BackButton({ onBack }: { onBack: () => void }) {
   return <button className="back-btn" onClick={onBack}>← Quay lại</button>;
 }
 
-function Chat({ locale, onBack }: { locale: Locale; onBack: () => void }) {
+function Chat({ locale, context, onBack }: { locale: Locale; context?: string; onBack: () => void }) {
   const labels = t[locale];
   const [messages, setMessages] = useState<ChatMessage[]>(() => {
     try { return JSON.parse(localStorage.getItem(CHAT_STORAGE_KEY) || '[]'); } catch { return []; }
@@ -427,7 +460,7 @@ function Chat({ locale, onBack }: { locale: Locale; onBack: () => void }) {
     setInput('');
     setSending(true);
     try {
-      const res = await apiPost<{ answer: string }>('/chatbot/ask', { question }, locale);
+      const res = await apiPost<{ answer: string }>('/chatbot/ask', { question, context }, locale);
       setMessages((items) => [...items, { id: crypto.randomUUID(), role: 'bot', content: res.answer || 'Em chưa có thông tin phù hợp.' }]);
     } catch {
       setMessages((items) => [...items, { id: crypto.randomUUID(), role: 'bot', content: labels.error }]);
@@ -469,13 +502,15 @@ function Chat({ locale, onBack }: { locale: Locale; onBack: () => void }) {
   );
 }
 
-function Checkin({ locale, onBack }: { locale: Locale; onBack: () => void }) {
+function Checkin({ locale, initialPoiSlug, initialQrValue, onBack }: { locale: Locale; initialPoiSlug?: string; initialQrValue?: string; onBack: () => void }) {
   const labels = t[locale];
-  const [poiSlug, setPoiSlug] = useState('');
-  const [qrValue, setQrValue] = useState('');
+  const [poiSlug, setPoiSlug] = useState(initialPoiSlug || '');
+  const [qrValue, setQrValue] = useState(initialQrValue || '');
   const [message, setMessage] = useState('');
   const [coords, setCoords] = useState<Coords | null>(null);
   const [poi, setPoi] = useState<Poi | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [autoSubmitted, setAutoSubmitted] = useState(false);
 
   useEffect(() => {
     getGps().then(setCoords).catch(() => setCoords(null));
@@ -485,6 +520,12 @@ function Checkin({ locale, onBack }: { locale: Locale; onBack: () => void }) {
     if (!poiSlug) { setPoi(null); return; }
     apiGet<Poi>(`/content/poi/${poiSlug}`, locale).then(setPoi).catch(() => setPoi(null));
   }, [locale, poiSlug]);
+
+  useEffect(() => {
+    if (!initialPoiSlug || !initialQrValue || !coords || autoSubmitted) return;
+    setAutoSubmitted(true);
+    submit();
+  }, [autoSubmitted, coords, initialPoiSlug, initialQrValue]);
 
   async function scanQr() {
     try {
@@ -499,14 +540,18 @@ function Checkin({ locale, onBack }: { locale: Locale; onBack: () => void }) {
   }
 
   async function submit() {
+    if (loading) return;
+    setLoading(true);
     setMessage(labels.loading);
     try {
       const nextCoords = coords || await getGps();
       setCoords(nextCoords);
-      const res = await apiPost<{ ok: boolean; message: string; badge?: string }>('/checkins', { poiSlug, qrValue, coords: nextCoords }, locale);
+      const res = await apiPost<CheckinResult>('/checkins', { poiSlug, qrValue, coords: nextCoords }, locale);
       setMessage(`${res.ok ? 'Đã check-in' : 'Chưa hợp lệ'}: ${res.message}${res.badge ? ` - ${res.badge}` : ''}`);
     } catch {
       setMessage(labels.error);
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -560,7 +605,8 @@ function Guides({ locale, onBack }: { locale: Locale; onBack: () => void }) {
           <article className="card detail-card">
             {detail.coverImageUrl && <img src={detail.coverImageUrl} alt="" />}
             <h2>{detail.title}</h2>
-            <Markdown text={detail.content || detail.summary || ''} />
+            {detail.summary && <p className="muted">{detail.summary}</p>}
+            <Markdown text={detail.bodyMd || detail.content || ''} />
           </article>
         )}
       </>
@@ -586,35 +632,53 @@ function Guides({ locale, onBack }: { locale: Locale; onBack: () => void }) {
 }
 
 function Markdown({ text }: { text: string }) {
-  return <div className="markdown">{text.split('\n').map((line, index) => <p key={index}>{line.replace(/^#+\s*/, '')}</p>)}</div>;
+  const lines = text.split('\n').map((line) => line.trim()).filter(Boolean);
+  return (
+    <div className="markdown">
+      {lines.map((line, index) => {
+        if (line.startsWith('### ')) return <h4 key={index}>{line.slice(4)}</h4>;
+        if (line.startsWith('## ')) return <h3 key={index}>{line.slice(3)}</h3>;
+        if (line.startsWith('# ')) return <h2 key={index}>{line.slice(2)}</h2>;
+        if (/^[-*]\s+/.test(line)) return <p key={index}>• {line.replace(/^[-*]\s+/, '')}</p>;
+        return <p key={index}>{line}</p>;
+      })}
+    </div>
+  );
 }
 
 function Profile({ locale, onBack }: { locale: Locale; onBack: () => void }) {
   const labels = t[locale];
-  const [profile, setProfile] = useState<any>(null);
+  const [profile, setProfile] = useState<ProfilePayload | null>(null);
   const [message, setMessage] = useState('');
+  const [loading, setLoading] = useState(true);
 
-  function loadProfile() {
-    apiGet<any>('/profile', locale).then(setProfile).catch(() => setProfile(null));
+  async function loadProfile() {
+    setLoading(true);
+    try {
+      const user = await fetchMe();
+      const payload = await apiGet<ProfilePayload>('/profile', locale).catch(() => null);
+      setProfile(payload ? { ...payload, user: payload.user || user } : user ? { user } : null);
+    } finally {
+      setLoading(false);
+    }
   }
 
-  useEffect(loadProfile, [locale, message]);
+  useEffect(() => { loadProfile(); }, [locale]);
 
   async function signIn() {
     setMessage(labels.loading);
     try {
-      const info = await getUserInfo({ autoRequestPermission: true });
-      const res = await apiPost<{ token?: string; user?: any }>('/auth/zalo/miniapp-login', { userInfo: (info as any).userInfo || info }, locale);
-      if (res.token) localStorage.setItem(TOKEN_KEY, res.token);
-      setProfile((current: any) => ({ ...current, user: res.user || (info as any).userInfo }));
-      setMessage('Đã đăng nhập Zalo');
+      const user = await loginWithZmp();
+      await loadProfile();
+      setProfile((current) => ({ ...(current || {}), user: current?.user || user }));
+      setMessage(user ? 'Đã đăng nhập Zalo' : labels.error);
     } catch {
       setMessage(labels.error);
     }
   }
 
-  function signOut() {
-    localStorage.removeItem(TOKEN_KEY);
+  async function signOut() {
+    await logoutUser();
     setProfile(null);
     setMessage('Đã đăng xuất');
   }
@@ -628,11 +692,12 @@ function Profile({ locale, onBack }: { locale: Locale; onBack: () => void }) {
         <button className="btn-secondary" onClick={signOut}>Đăng xuất</button>
       </section>
       {message && <div className="notice">{message}</div>}
-      {!profile && <div className="empty">{labels.loading}</div>}
+      {loading && <div className="empty">{labels.loading}</div>}
+      {!loading && !profile && <div className="empty">{labels.empty}</div>}
       {profile && (
         <>
           <section className="card">
-            <h3>{profile.user?.name || 'Du khách'}</h3>
+            <h3>{profile.user?.display_name || profile.user?.name || 'Du khách'}</h3>
             <div className="stat-row">
               <div className="stat-cell"><div className="stat-value">{profile.stats?.checkins ?? 0}</div><div className="stat-label">Check-in</div></div>
               <div className="stat-cell"><div className="stat-value">{profile.stats?.reports ?? 0}</div><div className="stat-label">Phản ánh</div></div>
