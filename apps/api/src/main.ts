@@ -1,6 +1,7 @@
 import { NestFactory } from '@nestjs/core';
+import type { NestExpressApplication } from '@nestjs/platform-express';
 import { existsSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { join, resolve } from 'node:path';
 import { AppModule } from './app.module';
 
 function loadEnv() {
@@ -19,7 +20,8 @@ function loadEnv() {
 
 async function bootstrap() {
   loadEnv();
-  const app = await NestFactory.create(AppModule, { cors: true });
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, { cors: true });
+  app.useStaticAssets(join(process.cwd(), 'public'));
   const port = Number(process.env.PORT) || 3002;
   await app.listen(port);
 }
