@@ -1,0 +1,27 @@
+node_modules
+.next
+dist
+coverage
+.env
+.env.*
+!.env.example
+
+# Build & cache
+.turbo
+.vercel
+.pnpm-store
+
+# Editor / OS
+.DS_Store
+Thumbs.db
+
+# Local logs
+*.log
+
+# Local plans/agents (workspace-only)
+.agents
+.claude
+plans
+
+# Local Vercel link files (created when running vercel CLI)
+**/.vercel

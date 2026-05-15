@@ -1,0 +1,84 @@
+.chat-shell {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-bottom: 96px;
+}
+.chat-empty {
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 13px;
+  padding: 20px 16px;
+}
+.bubble {
+  max-width: 85%;
+  padding: 10px 14px;
+  border-radius: 16px;
+  font-size: 14px;
+  line-height: 1.5;
+  word-break: break-word;
+  white-space: pre-wrap;
+  box-shadow: var(--shadow-sm);
+}
+.bubble-user {
+  align-self: flex-end;
+  background: var(--primary);
+  color: #fff;
+  border-bottom-right-radius: 4px;
+}
+.bubble-bot {
+  align-self: flex-start;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-bottom-left-radius: 4px;
+}
+.bubble-feedback { display: flex; gap: 6px; margin-top: 8px; }
+.feedback-btn {
+  display: inline-flex; align-items: center; gap: 4px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 600;
+}
+.feedback-btn.is-selected-positive { background: var(--primary-soft); color: var(--primary); border-color: var(--primary); }
+.feedback-btn.is-selected-negative { background: #fef2f2; color: #b91c1c; border-color: #fecaca; }
+
+/* Composer pinned to viewport bottom; sits above bottom tab bar.
+   Uses dvh + safe-area + visualViewport JS hook so it floats over the
+   on-screen keyboard instead of being covered by it. */
+.chat-composer {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: calc(var(--tabbar-height, 60px) + env(safe-area-inset-bottom, 0px));
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  background: var(--bg);
+  border-top: 1px solid var(--border);
+  padding: 10px 16px;
+  z-index: 30;
+  transition: bottom 120ms ease-out;
+}
+.chat-composer .input { flex: 1; padding-right: 14px; }
+.chat-send-btn {
+  width: 44px; height: 44px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--primary); color: #fff;
+  border: none; border-radius: 12px;
+  flex-shrink: 0;
+}
+.chat-send-btn:disabled { opacity: 0.5; }
+
+.chat-clear-btn {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 600;
+}

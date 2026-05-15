@@ -1,0 +1,26 @@
+{
+  "app": {
+    "title": "Núi Bà Đen",
+    "headerTitle": {
+      "vi": "Núi Bà Đen",
+      "en": "Ba Den Mountain"
+    },
+    "headerColor": {
+      "light": "#FFFFFF",
+      "dark": "#0F1F3D"
+    },
+    "textColor": {
+      "light": "black",
+      "dark": "white"
+    },
+    "leftButton": "back",
+    "statusBar": "normal",
+    "actionBarHidden": false,
+    "hideAndroidBottomNavigationBar": false,
+    "hideIOSSafeAreaBottom": false,
+    "selfControlLoading": false
+  },
+  "listCSS": [],
+  "listSyncJS": [],
+  "listAsyncJS": []
+}
