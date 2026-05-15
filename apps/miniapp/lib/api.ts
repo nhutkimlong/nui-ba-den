@@ -1,6 +1,7 @@
 import { DEFAULT_LOCALE, type Locale, SUPPORTED_LOCALES } from '@nui-ba-den/shared';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:3002';
+const rawApiBase = process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:3002';
+const API_BASE = rawApiBase.startsWith('http') ? rawApiBase : `https://${rawApiBase}`;
 
 export function pickLocale(value: string | null | undefined): Locale {
   if (value && SUPPORTED_LOCALES.includes(value as Locale)) return value as Locale;

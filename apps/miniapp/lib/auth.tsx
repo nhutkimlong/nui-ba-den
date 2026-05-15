@@ -2,7 +2,8 @@
 
 import { createContext, useContext, useEffect, useState } from 'react';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:3002';
+const rawApiBase = process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:3002';
+const API_BASE = rawApiBase.startsWith('http') ? rawApiBase : `https://${rawApiBase}`;
 const TOKEN_KEY = 'nbd_user_token';
 
 export interface AppUser {

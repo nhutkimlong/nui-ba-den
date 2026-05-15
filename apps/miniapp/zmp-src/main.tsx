@@ -1,41 +1,12 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { createRoot } from 'react-dom/client';
+import { getPhoneNumber, getUserInfo, scanQRCode } from 'zmp-sdk/apis';
 import './styles.css';
-import { BellIcon, CheckIcon, ChevronRightIcon, CompassIcon, HelpIcon, HomeIcon, MapPinIcon, MegaphoneIcon, MessageIcon, PhoneIcon, QrCodeIcon, SendIcon, TrophyIcon, UserIcon } from '../components/icons';
+import { CheckIcon, ChevronRightIcon, CompassIcon, HelpIcon, HomeIcon, MapPinIcon, MegaphoneIcon, MessageIcon, PhoneIcon, QrCodeIcon, UserIcon } from '../components/icons';
+import { apiGet, apiPost, apiUpload, getGps, TOKEN_KEY, type Coords, type Locale } from './miniapp-api-client';
+import type { ChatMessage, ExplorePayload, GuideDetail, GuideItem, HomePayload, Poi, ReportDetail, ReportItem, SupportView, Tab } from './miniapp-types';
 
-const API_BASE = import.meta.env.VITE_API_BASE || 'https://nbd-api-t63a.onrender.com';
-
-type Tab = 'home' | 'explore' | 'report' | 'support';
-type SupportView = 'menu' | 'chat' | 'checkin' | 'guides' | 'profile';
-type Locale = 'vi' | 'en';
-
-type Poi = {
-  id: string;
-  slug: string;
-  title: string;
-  category: string;
-  shortDescription?: string;
-  imageUrl?: string;
-};
-
-type HomePayload = {
-  alerts?: string[];
-  featuredPois?: Poi[];
-  banners?: { title?: string; subtitle?: string; imageUrl?: string }[];
-};
-
-type ExplorePayload = {
-  pois?: Poi[];
-  categories?: { id: string; label: string }[];
-};
-
-type ReportItem = {
-  id: string;
-  code: string;
-  category: string;
-  status: string;
-  createdAt: string;
-};
+const CHAT_STORAGE_KEY = 'nbd_chat_history';
 
 const t = {
   vi: {
@@ -88,30 +59,17 @@ const t = {
   },
 } as const;
 
-async function apiGet<T>(path: string, locale: Locale): Promise<T> {
-  const url = new URL(path, API_BASE);
-  url.searchParams.set('locale', locale);
-  const res = await fetch(url.toString());
-  if (!res.ok) throw new Error(`${path}: ${res.status}`);
-  return res.json();
-}
-
-async function apiPost<T>(path: string, body: unknown, locale: Locale): Promise<T> {
-  const url = new URL(path, API_BASE);
-  url.searchParams.set('locale', locale);
-  const res = await fetch(url.toString(), {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify(body),
-  });
-  if (!res.ok) throw new Error(`${path}: ${res.status}`);
-  return res.json();
-}
 
 function App() {
   const [tab, setTab] = useState<Tab>('home');
   const [locale, setLocale] = useState<Locale>('vi');
+  const [supportView, setSupportView] = useState<SupportView>('menu');
   const labels = t[locale];
+
+  function openSupport(view: SupportView) {
+    setSupportView(view);
+    setTab('support');
+  }
 
   return (
     <div className="app-shell">
@@ -125,10 +83,10 @@ function App() {
         </button>
       </header>
       <main className="app-content">
-        {tab === 'home' && <Home locale={locale} setTab={setTab} />}
-        {tab === 'explore' && <Explore locale={locale} />}
+        {tab === 'home' && <Home locale={locale} setTab={setTab} openSupport={openSupport} />}
+        {tab === 'explore' && <Explore locale={locale} openSupport={openSupport} />}
         {tab === 'report' && <Report locale={locale} />}
-        {tab === 'support' && <Support locale={locale} />}
+        {tab === 'support' && <Support locale={locale} view={supportView} setView={setSupportView} />}
       </main>
       <nav className="tabbar">
         {(['home', 'explore', 'report', 'support'] as Tab[]).map((key) => (
@@ -150,7 +108,7 @@ function TabIcon({ tab, active }: { tab: Tab; active: boolean }) {
   return <MessageIcon {...props} />;
 }
 
-function Home({ locale, setTab }: { locale: Locale; setTab: (tab: Tab) => void }) {
+function Home({ locale, setTab, openSupport }: { locale: Locale; setTab: (tab: Tab) => void; openSupport: (view: SupportView) => void }) {
   const labels = t[locale];
   const [data, setData] = useState<HomePayload | null>(null);
   const [error, setError] = useState(false);
@@ -177,8 +135,8 @@ function Home({ locale, setTab }: { locale: Locale; setTab: (tab: Tab) => void }
         <div className="shortcut-grid">
           <button className="shortcut" onClick={() => setTab('explore')}><span className="shortcut-icon"><CompassIcon size={20} /></span><span>Khám phá</span></button>
           <button className="shortcut" onClick={() => setTab('report')}><span className="shortcut-icon"><MegaphoneIcon size={20} /></span><span>Phản ánh</span></button>
-          <button className="shortcut" onClick={() => setTab('support')}><span className="shortcut-icon"><MessageIcon size={20} /></span><span>Hỗ trợ</span></button>
-          <button className="shortcut" onClick={() => setTab('support')}><span className="shortcut-icon"><MapPinIcon size={20} /></span><span>Check-in</span></button>
+          <button className="shortcut" onClick={() => openSupport('chat')}><span className="shortcut-icon"><MessageIcon size={20} /></span><span>Hỗ trợ</span></button>
+          <button className="shortcut" onClick={() => openSupport('checkin')}><span className="shortcut-icon"><MapPinIcon size={20} /></span><span>Check-in</span></button>
         </div>
       </section>
       {error && <div className="notice error">{labels.error}</div>}
@@ -190,10 +148,12 @@ function Home({ locale, setTab }: { locale: Locale; setTab: (tab: Tab) => void }
   );
 }
 
-function Explore({ locale }: { locale: Locale }) {
+function Explore({ locale, openSupport }: { locale: Locale; openSupport: (view: SupportView) => void }) {
   const labels = t[locale];
   const [data, setData] = useState<ExplorePayload | null>(null);
   const [active, setActive] = useState<string>('');
+  const [selected, setSelected] = useState<string>('');
+  const [detail, setDetail] = useState<Poi | null>(null);
 
   useEffect(() => {
     apiGet<ExplorePayload>('/content/explore', locale)
@@ -201,10 +161,40 @@ function Explore({ locale }: { locale: Locale }) {
       .catch(() => setData({ pois: [], categories: [] }));
   }, [locale]);
 
+  useEffect(() => {
+    if (!selected) return;
+    setDetail(null);
+    apiGet<Poi>(`/content/poi/${selected}`, locale)
+      .then(setDetail)
+      .catch(() => setDetail(data?.pois?.find((p) => p.slug === selected) || null));
+  }, [data, locale, selected]);
+
   const pois = useMemo(() => {
     const list = data?.pois || [];
     return active ? list.filter((p) => p.category === active) : list;
   }, [active, data]);
+
+  if (selected) {
+    return (
+      <>
+        <BackButton onBack={() => setSelected('')} />
+        {!detail && <div className="empty">{labels.loading}</div>}
+        {detail && (
+          <article className="card detail-card">
+            {detail.imageUrl && <img src={detail.imageUrl} alt="" />}
+            <div className="tag">{detail.category}</div>
+            <h2>{detail.title}</h2>
+            <p>{detail.longDescription || detail.shortDescription}</p>
+            {detail.latitude && detail.longitude && <div className="notice">GPS: {detail.latitude}, {detail.longitude}</div>}
+            <div className="menu">
+              <button onClick={() => openSupport('checkin')}><QrCodeIcon size={18} /> Check-in tại điểm này</button>
+              <button onClick={() => openSupport('chat')}><MessageIcon size={18} /> Hỏi chatbot về điểm này</button>
+            </div>
+          </article>
+        )}
+      </>
+    );
+  }
 
   return (
     <>
@@ -219,14 +209,14 @@ function Explore({ locale }: { locale: Locale }) {
         ))}
       </div>
       {pois.length === 0 && data && <div className="empty">{labels.empty}</div>}
-      {pois.map((poi) => <PoiCard key={poi.id} poi={poi} />)}
+      {pois.map((poi) => <PoiCard key={poi.id} poi={poi} onClick={() => setSelected(poi.slug)} />)}
     </>
   );
 }
 
-function PoiCard({ poi }: { poi: Poi }) {
+function PoiCard({ poi, onClick }: { poi: Poi; onClick?: () => void }) {
   return (
-    <article className="card">
+    <article className="card" onClick={onClick} role={onClick ? 'button' : undefined}>
       {poi.imageUrl && <img src={poi.imageUrl} alt="" />}
       <div className="tag">{poi.category}</div>
       <h3>{poi.title}</h3>
@@ -242,24 +232,94 @@ function Report({ locale }: { locale: Locale }) {
   const [location, setLocation] = useState('');
   const [message, setMessage] = useState('');
   const [history, setHistory] = useState<ReportItem[]>([]);
+  const [detail, setDetail] = useState<ReportDetail | null>(null);
+  const [coords, setCoords] = useState<Coords | null>(null);
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [photoLabel, setPhotoLabel] = useState('');
+  const [phoneToken, setPhoneToken] = useState('');
+  const categories = [
+    { id: 'service', label: 'Dịch vụ' },
+    { id: 'security_order', label: 'An ninh/trật tự' },
+    { id: 'environment', label: 'Môi trường' },
+    { id: 'other', label: 'Khác' },
+  ];
 
-  useEffect(() => {
+  async function requestGps() {
+    try {
+      const next = await getGps();
+      setCoords(next);
+      setLocation(`${next.lat.toFixed(5)}, ${next.lng.toFixed(5)}`);
+    } catch {
+      setMessage('Không lấy được vị trí GPS');
+    }
+  }
+
+  async function requestPhone() {
+    try {
+      const res = await getPhoneNumber({});
+      setPhoneToken((res as any).token || (res as any).number || '');
+      setMessage('Đã nhận token số điện thoại');
+    } catch {
+      setMessage('Không lấy được token số điện thoại');
+    }
+  }
+
+  function loadHistory() {
     apiGet<{ items: ReportItem[] }>('/reports/history', locale)
       .then((res) => setHistory(res.items || []))
       .catch(() => setHistory([]));
-  }, [locale, message]);
+  }
+
+  useEffect(loadHistory, [locale, message]);
+
+  async function openDetail(code: string) {
+    setMessage(labels.loading);
+    try {
+      setDetail(await apiGet<ReportDetail>(`/reports/by-code/${code}`, locale));
+      setMessage('');
+    } catch {
+      setMessage(labels.error);
+    }
+  }
 
   async function submit() {
     if (!description.trim()) return;
     setMessage(labels.loading);
     try {
-      const res = await apiPost<{ code: string }>('/reports', { category, description, location }, locale);
+      const res = await apiPost<{ code: string }>('/reports', { category, description, location, coords, contactPhoneToken: phoneToken || undefined }, locale);
+      if (photoFile) await apiUpload(`/reports/${res.code}/attachments`, photoFile, locale);
       setDescription('');
       setLocation('');
+      setCoords(null);
+      setPhoneToken('');
+      setPhotoFile(null);
+      setPhotoLabel('');
       setMessage(`${labels.submitted}: ${res.code}`);
+      openDetail(res.code);
     } catch {
       setMessage(labels.error);
     }
+  }
+
+  if (detail) {
+    return (
+      <>
+        <BackButton onBack={() => setDetail(null)} />
+        <h2>{detail.code}</h2>
+        <section className="card">
+          <div className="tag">{detail.category}</div>
+          <h3>{detail.status}</h3>
+          <p>{detail.description}</p>
+          {detail.location && <div className="notice">{detail.location}</div>}
+        </section>
+        <h3>Timeline</h3>
+        {(detail.timeline || []).map((entry, index) => (
+          <article className="card row" key={`${entry.status}-${index}`}>
+            <div><strong>{entry.status}</strong><p>{entry.note || entry.at}</p></div>
+          </article>
+        ))}
+      </>
+    );
   }
 
   return (
@@ -268,36 +328,39 @@ function Report({ locale }: { locale: Locale }) {
       <section className="card form">
         <label>{labels.category}</label>
         <select value={category} onChange={(e) => setCategory(e.target.value)}>
-          <option value="service">Dịch vụ</option>
-          <option value="security">An ninh/trật tự</option>
-          <option value="environment">Môi trường</option>
-          <option value="other">Khác</option>
+          {categories.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
         </select>
         <label>{labels.description}</label>
         <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={4} />
         <label>{labels.location}</label>
-        <input value={location} onChange={(e) => setLocation(e.target.value)} />
+        <div style={{ display: 'flex', gap: 8 }}>
+          <input value={location} onChange={(e) => setLocation(e.target.value)} />
+          <button type="button" className="btn-secondary qr-btn" onClick={requestGps}><MapPinIcon size={16} /> GPS</button>
+        </div>
+        <label>Ảnh</label>
+        <input type="file" accept="image/*" onChange={(e) => { const file = e.target.files?.[0] || null; setPhotoFile(file); setPhotoLabel(file?.name || ''); }} />
+        {photoLabel && <div className="muted">{photoLabel}</div>}
+        <button type="button" className="btn-secondary" onClick={requestPhone}>Chia sẻ số điện thoại</button>
         <button className="primary" onClick={submit}>{labels.send}</button>
         {message && <div className="notice">{message}</div>}
       </section>
       <h3>{labels.history}</h3>
       {history.length === 0 && <div className="empty">{labels.empty}</div>}
       {history.map((item) => (
-        <article className="card row" key={item.id}>
+        <button className="card row" key={item.id} onClick={() => openDetail(item.code)}>
           <div>
             <strong>{item.code}</strong>
             <p>{item.category}</p>
           </div>
           <span className="pill">{item.status}</span>
-        </article>
+        </button>
       ))}
     </>
   );
 }
 
-function Support({ locale }: { locale: Locale }) {
+function Support({ locale, view, setView }: { locale: Locale; view: SupportView; setView: (view: SupportView) => void }) {
   const labels = t[locale];
-  const [view, setView] = useState<SupportView>('menu');
 
   if (view === 'chat') return <Chat locale={locale} onBack={() => setView('menu')} />;
   if (view === 'checkin') return <Checkin locale={locale} onBack={() => setView('menu')} />;
@@ -340,34 +403,62 @@ function BackButton({ onBack }: { onBack: () => void }) {
 
 function Chat({ locale, onBack }: { locale: Locale; onBack: () => void }) {
   const labels = t[locale];
-  const [messages, setMessages] = useState<{ role: 'user' | 'bot'; content: string }[]>([]);
+  const [messages, setMessages] = useState<ChatMessage[]>(() => {
+    try { return JSON.parse(localStorage.getItem(CHAT_STORAGE_KEY) || '[]'); } catch { return []; }
+  });
+  const [suggestions, setSuggestions] = useState<{ id: string; question: string }[]>([]);
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
+
+  useEffect(() => {
+    localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(messages));
+  }, [messages]);
+
+  useEffect(() => {
+    apiGet<{ items: { id: string; question: string }[] }>('/chatbot/suggestions', locale)
+      .then((res) => setSuggestions(res.items || []))
+      .catch(() => setSuggestions([]));
+  }, [locale]);
 
   async function send(text = input) {
     const question = text.trim();
     if (!question || sending) return;
-    setMessages((items) => [...items, { role: 'user', content: question }]);
+    setMessages((items) => [...items, { id: crypto.randomUUID(), role: 'user', content: question }]);
     setInput('');
     setSending(true);
     try {
       const res = await apiPost<{ answer: string }>('/chatbot/ask', { question }, locale);
-      setMessages((items) => [...items, { role: 'bot', content: res.answer || 'Em chưa có thông tin phù hợp.' }]);
+      setMessages((items) => [...items, { id: crypto.randomUUID(), role: 'bot', content: res.answer || 'Em chưa có thông tin phù hợp.' }]);
     } catch {
-      setMessages((items) => [...items, { role: 'bot', content: labels.error }]);
+      setMessages((items) => [...items, { id: crypto.randomUUID(), role: 'bot', content: labels.error }]);
     } finally {
       setSending(false);
     }
+  }
+
+  async function setFeedback(messageId: string, feedback: 'helpful' | 'unhelpful') {
+    setMessages((items) => items.map((item) => item.id === messageId ? { ...item, feedback } : item));
+    try { await apiPost('/chatbot/feedback', { messageId, feedback }, locale); } catch {}
   }
 
   return (
     <>
       <BackButton onBack={onBack} />
       <h2>{labels.chat}</h2>
+      <button className="btn-secondary" onClick={() => setMessages([])}>Xóa chat</button>
       {messages.length === 0 && <div className="chat-empty">Dạ em là trợ lý du lịch Núi Bà Đen. Anh/chị cần hỗ trợ gì ạ?</div>}
+      {suggestions.length > 0 && <div className="chips">{suggestions.map((item) => <button key={item.id} onClick={() => send(item.question)}>{item.question}</button>)}</div>}
       <section className="chat-shell">
-        {messages.map((msg, i) => (
-          <div key={i} className={`bubble ${msg.role === 'user' ? 'bubble-user' : 'bubble-bot'}`}>{msg.content}</div>
+        {messages.map((msg) => (
+          <div key={msg.id}>
+            <div className={`bubble ${msg.role === 'user' ? 'bubble-user' : 'bubble-bot'}`}>{msg.content}</div>
+            {msg.role === 'bot' && (
+              <div className="chips">
+                <button className={msg.feedback === 'helpful' ? 'on' : ''} onClick={() => setFeedback(msg.id, 'helpful')}>Hữu ích</button>
+                <button className={msg.feedback === 'unhelpful' ? 'on' : ''} onClick={() => setFeedback(msg.id, 'unhelpful')}>Chưa đúng</button>
+              </div>
+            )}
+          </div>
         ))}
       </section>
       <section className="chat-composer-inline">
@@ -383,21 +474,37 @@ function Checkin({ locale, onBack }: { locale: Locale; onBack: () => void }) {
   const [poiSlug, setPoiSlug] = useState('');
   const [qrValue, setQrValue] = useState('');
   const [message, setMessage] = useState('');
-  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [coords, setCoords] = useState<Coords | null>(null);
+  const [poi, setPoi] = useState<Poi | null>(null);
 
   useEffect(() => {
-    navigator.geolocation?.getCurrentPosition(
-      (pos) => setCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
-      () => setCoords(null),
-      { enableHighAccuracy: true, timeout: 8000 },
-    );
+    getGps().then(setCoords).catch(() => setCoords(null));
   }, []);
+
+  useEffect(() => {
+    if (!poiSlug) { setPoi(null); return; }
+    apiGet<Poi>(`/content/poi/${poiSlug}`, locale).then(setPoi).catch(() => setPoi(null));
+  }, [locale, poiSlug]);
+
+  async function scanQr() {
+    try {
+      const res = await scanQRCode({});
+      const content = (res as any).content || '';
+      setQrValue(content);
+      const found = content.match(/poi=([^&]+)/)?.[1] || content.match(/poi:([\w-]+)/)?.[1];
+      if (found) setPoiSlug(decodeURIComponent(found));
+    } catch {
+      setMessage('Không quét được QR');
+    }
+  }
 
   async function submit() {
     setMessage(labels.loading);
     try {
-      const res = await apiPost<{ ok: boolean; message: string; badge?: string }>('/checkins', { poiSlug, qrValue, coords }, locale);
-      setMessage(`${res.ok ? '✅' : '⚠️'} ${res.message}${res.badge ? ` - ${res.badge}` : ''}`);
+      const nextCoords = coords || await getGps();
+      setCoords(nextCoords);
+      const res = await apiPost<{ ok: boolean; message: string; badge?: string }>('/checkins', { poiSlug, qrValue, coords: nextCoords }, locale);
+      setMessage(`${res.ok ? 'Đã check-in' : 'Chưa hợp lệ'}: ${res.message}${res.badge ? ` - ${res.badge}` : ''}`);
     } catch {
       setMessage(labels.error);
     }
@@ -410,10 +517,14 @@ function Checkin({ locale, onBack }: { locale: Locale; onBack: () => void }) {
       <section className="card form">
         <label>POI slug</label>
         <input value={poiSlug} onChange={(e) => setPoiSlug(e.target.value)} placeholder="ba-den-peak" />
+        {poi && <div className="notice"><strong>{poi.title}</strong><br />{poi.shortDescription}</div>}
         <label>QR code</label>
-        <input value={qrValue} onChange={(e) => setQrValue(e.target.value)} placeholder="NBD-PEAK-001" />
+        <div style={{ display: 'flex', gap: 8 }}>
+          <input value={qrValue} onChange={(e) => setQrValue(e.target.value)} placeholder="NBD-PEAK-001" />
+          <button type="button" className="btn-secondary qr-btn" onClick={scanQr}><QrCodeIcon size={16} /> QR</button>
+        </div>
         <div className="notice">GPS: {coords ? `${coords.lat.toFixed(5)}, ${coords.lng.toFixed(5)}` : 'Chưa có quyền vị trí'}</div>
-        <button className="primary" onClick={submit}>{labels.checkin}</button>
+        <button className="primary" onClick={submit}><CheckIcon size={18} /> {labels.checkin}</button>
         {message && <div className="notice">{message}</div>}
       </section>
     </>
@@ -422,40 +533,101 @@ function Checkin({ locale, onBack }: { locale: Locale; onBack: () => void }) {
 
 function Guides({ locale, onBack }: { locale: Locale; onBack: () => void }) {
   const labels = t[locale];
-  const [items, setItems] = useState<{ id: string; title: string; summary?: string; coverImageUrl?: string }[]>([]);
+  const [items, setItems] = useState<GuideItem[]>([]);
+  const [selected, setSelected] = useState('');
+  const [detail, setDetail] = useState<GuideDetail | null>(null);
+
   useEffect(() => {
-    apiGet<{ items: { id: string; title: string; summary?: string; coverImageUrl?: string }[] }>('/content/guides', locale)
+    apiGet<{ items: GuideItem[] }>('/content/guides', locale)
       .then((res) => setItems(res.items || []))
       .catch(() => setItems([]));
   }, [locale]);
+
+  useEffect(() => {
+    if (!selected) return;
+    setDetail(null);
+    apiGet<GuideDetail>(`/content/guides/${selected}`, locale)
+      .then(setDetail)
+      .catch(() => setDetail(items.find((item) => (item.slug || item.id) === selected) || null));
+  }, [items, locale, selected]);
+
+  if (selected) {
+    return (
+      <>
+        <BackButton onBack={() => setSelected('')} />
+        {!detail && <div className="empty">{labels.loading}</div>}
+        {detail && (
+          <article className="card detail-card">
+            {detail.coverImageUrl && <img src={detail.coverImageUrl} alt="" />}
+            <h2>{detail.title}</h2>
+            <Markdown text={detail.content || detail.summary || ''} />
+          </article>
+        )}
+      </>
+    );
+  }
+
   return (
     <>
       <BackButton onBack={onBack} />
       <h2>{labels.guides}</h2>
       {items.length === 0 && <div className="empty">{labels.empty}</div>}
       {items.map((item) => (
-        <article className="list-row" key={item.id}>
+        <button className="list-row" key={item.id} onClick={() => setSelected(item.slug || item.id)}>
           {item.coverImageUrl ? <img src={item.coverImageUrl} alt="" style={{ width: 56, height: 56, borderRadius: 12, objectFit: 'cover' }} /> : <span className="list-row-icon" />}
           <div className="list-row-body">
             <div className="list-row-title">{item.title}</div>
             <div className="list-row-meta">{item.summary}</div>
           </div>
-        </article>
+        </button>
       ))}
     </>
   );
 }
 
+function Markdown({ text }: { text: string }) {
+  return <div className="markdown">{text.split('\n').map((line, index) => <p key={index}>{line.replace(/^#+\s*/, '')}</p>)}</div>;
+}
+
 function Profile({ locale, onBack }: { locale: Locale; onBack: () => void }) {
   const labels = t[locale];
   const [profile, setProfile] = useState<any>(null);
-  useEffect(() => {
+  const [message, setMessage] = useState('');
+
+  function loadProfile() {
     apiGet<any>('/profile', locale).then(setProfile).catch(() => setProfile(null));
-  }, [locale]);
+  }
+
+  useEffect(loadProfile, [locale, message]);
+
+  async function signIn() {
+    setMessage(labels.loading);
+    try {
+      const info = await getUserInfo({ autoRequestPermission: true });
+      const res = await apiPost<{ token?: string; user?: any }>('/auth/zalo/miniapp-login', { userInfo: (info as any).userInfo || info }, locale);
+      if (res.token) localStorage.setItem(TOKEN_KEY, res.token);
+      setProfile((current: any) => ({ ...current, user: res.user || (info as any).userInfo }));
+      setMessage('Đã đăng nhập Zalo');
+    } catch {
+      setMessage(labels.error);
+    }
+  }
+
+  function signOut() {
+    localStorage.removeItem(TOKEN_KEY);
+    setProfile(null);
+    setMessage('Đã đăng xuất');
+  }
+
   return (
     <>
       <BackButton onBack={onBack} />
       <h2>{labels.profile}</h2>
+      <section className="card row">
+        <button className="primary" onClick={signIn}>Đăng nhập Zalo</button>
+        <button className="btn-secondary" onClick={signOut}>Đăng xuất</button>
+      </section>
+      {message && <div className="notice">{message}</div>}
       {!profile && <div className="empty">{labels.loading}</div>}
       {profile && (
         <>
@@ -468,7 +640,9 @@ function Profile({ locale, onBack }: { locale: Locale; onBack: () => void }) {
             </div>
           </section>
           <h3 className="section-title">Huy hiệu</h3>
-          {profile.badges?.map((b: any) => <div className="card row" key={b.id}><span>{b.name}</span><span>{b.achieved ? '✅' : '—'}</span></div>)}
+          {profile.badges?.map((b: any) => <div className="card row" key={b.id}><span>{b.name}</span><span>{b.achieved ? 'Đạt' : '—'}</span></div>)}
+          <h3 className="section-title">Check-in gần đây</h3>
+          {profile.recentCheckins?.map((item: any) => <div className="card row" key={item.id}><span>{item.poiTitle}</span><span>{new Date(item.at).toLocaleDateString('vi-VN')}</span></div>)}
         </>
       )}
     </>
