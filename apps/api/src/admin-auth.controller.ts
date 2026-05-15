@@ -24,12 +24,15 @@ interface LoginBody {
 export class AdminAuthController {
   @Post('login')
   async login(@Body() body: LoginBody, @Req() req: Request) {
+    let stage = 'start';
     try {
       if (!body?.email || !body?.password) {
         throw new BadRequestException('missing_credentials');
       }
 
+      stage = 'supabase_client';
       const sb = getSupabase();
+      stage = 'select_admin';
       const { data: admin, error: adminError } = await sb
         .from('admin_users')
         .select('id, email, password_hash, is_active')
@@ -40,9 +43,11 @@ export class AdminAuthController {
       if (!admin || !admin.is_active || !admin.password_hash) {
         return { error: 'invalid_credentials' };
       }
+      stage = 'compare_password';
       const ok = await bcrypt.compare(body.password, admin.password_hash);
       if (!ok) return { error: 'invalid_credentials' };
 
+      stage = 'insert_session';
       const session = issueSession();
       const { error: sessionError } = await sb.from('admin_sessions').insert({
         admin_user_id: admin.id,
@@ -52,6 +57,7 @@ export class AdminAuthController {
       });
       if (sessionError) throw sessionError;
 
+      stage = 'update_last_login';
       const { error: updateError } = await sb
         .from('admin_users')
         .update({ last_login_at: new Date().toISOString() })
@@ -65,8 +71,8 @@ export class AdminAuthController {
       };
     } catch (err) {
       if (err instanceof BadRequestException) throw err;
-      console.error('admin_login_failed', err);
-      throw new InternalServerErrorException('admin_login_failed');
+      console.error('admin_login_failed', { stage, err });
+      throw new InternalServerErrorException(`admin_login_failed:${stage}`);
     }
   }
 
