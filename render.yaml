@@ -6,7 +6,7 @@ services:
     region: singapore
     rootDir: apps/api
     buildCommand: corepack enable && corepack prepare pnpm@10.0.0 --activate && cd ../.. && pnpm install --no-frozen-lockfile && pnpm --filter api build
-    startCommand: node dist/main.js
+    startCommand: node dist/src/main.js
     healthCheckPath: /health
     autoDeploy: true
     envVars:
@@ -38,7 +38,7 @@ services:
     region: singapore
     rootDir: apps/admin
     buildCommand: corepack enable && corepack prepare pnpm@10.0.0 --activate && cd ../.. && pnpm install --no-frozen-lockfile && pnpm --filter admin build
-    startCommand: cd ../.. && pnpm --filter admin exec next start -p $PORT
+    startCommand: node_modules/.bin/next start -p $PORT
     autoDeploy: true
     envVars:
       - key: NODE_VERSION
@@ -56,7 +56,7 @@ services:
     region: singapore
     rootDir: apps/miniapp
     buildCommand: corepack enable && corepack prepare pnpm@10.0.0 --activate && cd ../.. && pnpm install --no-frozen-lockfile && pnpm --filter miniapp build
-    startCommand: cd ../.. && pnpm --filter miniapp exec next start -p $PORT
+    startCommand: node_modules/.bin/next start -p $PORT
     autoDeploy: true
     envVars:
       - key: NODE_VERSION

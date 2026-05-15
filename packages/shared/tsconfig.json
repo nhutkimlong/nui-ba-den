@@ -2,8 +2,10 @@
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "outDir": "dist",
-    "module": "ESNext",
-    "moduleResolution": "Bundler"
+    "module": "CommonJS",
+    "moduleResolution": "Node",
+    "declaration": true,
+    "noEmit": false
   },
   "include": ["src/**/*"]
 }

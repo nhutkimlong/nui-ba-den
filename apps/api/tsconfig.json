@@ -8,10 +8,7 @@
     "experimentalDecorators": true,
     "noEmit": false,
     "target": "ES2022",
-    "lib": ["ES2022"],
-    "paths": {
-      "@nui-ba-den/shared": ["../../packages/shared/src/index.ts"]
-    }
+    "lib": ["ES2022"]
   },
   "include": ["src/**/*", "api/**/*"]
 }
