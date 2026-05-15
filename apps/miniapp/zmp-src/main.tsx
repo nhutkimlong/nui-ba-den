@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { getPhoneNumber, scanQRCode } from 'zmp-sdk/apis';
 import './styles.css';
-import { CheckIcon, ChevronRightIcon, CompassIcon, HelpIcon, HomeIcon, MapPinIcon, MegaphoneIcon, MessageIcon, PhoneIcon, QrCodeIcon, UserIcon } from '../components/icons';
+import { CheckIcon, ChevronRightIcon, CompassIcon, HelpIcon, HomeIcon, MapPinIcon, MegaphoneIcon, MessageIcon, PhoneIcon, QrCodeIcon, SendIcon, TrashIcon, TrophyIcon, UserIcon, XIcon } from '../components/icons';
 import { apiGet, apiPost, apiUpload, fetchMe, getGps, loginWithZmp, logoutUser, type Coords, type Locale } from './miniapp-api-client';
 import type { ChatMessage, CheckinResult, ExplorePayload, GuideDetail, GuideItem, HomePayload, Poi, ProfilePayload, ReportDetail, ReportItem, SupportParams, SupportView, Tab } from './miniapp-types';
 
@@ -477,27 +477,43 @@ function Chat({ locale, context, onBack }: { locale: Locale; context?: string; o
   return (
     <>
       <BackButton onBack={onBack} />
-      <h2>{labels.chat}</h2>
-      <button className="btn-secondary" onClick={() => setMessages([])}>Xóa chat</button>
-      {messages.length === 0 && <div className="chat-empty">Dạ em là trợ lý du lịch Núi Bà Đen. Anh/chị cần hỗ trợ gì ạ?</div>}
-      {suggestions.length > 0 && <div className="chips">{suggestions.map((item) => <button key={item.id} onClick={() => send(item.question)}>{item.question}</button>)}</div>}
-      <section className="chat-shell">
+      <div className="screen-title-row">
+        <h2>{labels.chat}</h2>
+        {messages.length > 0 && (
+          <button className="chat-clear-btn" onClick={() => setMessages([])}>
+            <TrashIcon size={14} /> Xóa
+          </button>
+        )}
+      </div>
+      {messages.length === 0 && (
+        <section className="section">
+          <div className="chat-empty">Dạ em là trợ lý du lịch Núi Bà Đen. Anh/chị cần hỗ trợ gì ạ?</div>
+          {suggestions.length > 0 && (
+            <>
+              <h3 className="section-title">Câu hỏi gợi ý</h3>
+              <div className="chip-row">{suggestions.map((item) => <button key={item.id} className="chip" onClick={() => send(item.question)}>{item.question}</button>)}</div>
+            </>
+          )}
+        </section>
+      )}
+      <section className="section chat-shell">
         {messages.map((msg) => (
-          <div key={msg.id}>
-            <div className={`bubble ${msg.role === 'user' ? 'bubble-user' : 'bubble-bot'}`}>{msg.content}</div>
+          <div key={msg.id} className={`bubble ${msg.role === 'user' ? 'bubble-user' : 'bubble-bot'}`}>
+            {msg.content}
             {msg.role === 'bot' && (
-              <div className="chips">
-                <button className={msg.feedback === 'helpful' ? 'on' : ''} onClick={() => setFeedback(msg.id, 'helpful')}>Hữu ích</button>
-                <button className={msg.feedback === 'unhelpful' ? 'on' : ''} onClick={() => setFeedback(msg.id, 'unhelpful')}>Chưa đúng</button>
+              <div className="bubble-feedback">
+                <button className={`feedback-btn ${msg.feedback === 'helpful' ? 'is-selected-positive' : ''}`} disabled={!!msg.feedback} onClick={() => setFeedback(msg.id, 'helpful')}>Hữu ích</button>
+                <button className={`feedback-btn ${msg.feedback === 'unhelpful' ? 'is-selected-negative' : ''}`} disabled={!!msg.feedback} onClick={() => setFeedback(msg.id, 'unhelpful')}>Chưa đúng</button>
               </div>
             )}
           </div>
         ))}
+        {sending && <div className="bubble bubble-bot"><span style={{ opacity: 0.6 }}>Đang soạn câu trả lời…</span></div>}
       </section>
-      <section className="chat-composer-inline">
-        <input value={input} onChange={(e) => setInput(e.target.value)} placeholder="Nhập câu hỏi..." onKeyDown={(e) => e.key === 'Enter' && send()} />
-        <button onClick={() => send()} disabled={sending}>{sending ? '...' : 'Gửi'}</button>
-      </section>
+      <form className="chat-composer-inline" onSubmit={(e) => { e.preventDefault(); send(input); }}>
+        <input className="input" value={input} onChange={(e) => setInput(e.target.value)} placeholder="Nhập câu hỏi..." enterKeyHint="send" autoComplete="off" />
+        <button className="chat-send-btn" type="submit" disabled={sending || !input.trim()}><SendIcon size={18} /></button>
+      </form>
     </>
   );
 }
@@ -559,18 +575,36 @@ function Checkin({ locale, initialPoiSlug, initialQrValue, onBack }: { locale: L
     <>
       <BackButton onBack={onBack} />
       <h2>{labels.checkin}</h2>
+      {poi && (
+        <section className="section">
+          <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+            {poi.imageUrl && <img src={poi.imageUrl} alt={poi.title} />}
+            <div style={{ padding: 14 }}>
+              <span className="tag">{poi.category}</span>
+              <h3 style={{ margin: '8px 0 6px' }}>{poi.title}</h3>
+              <p className="muted">{poi.longDescription || poi.shortDescription}</p>
+            </div>
+          </div>
+        </section>
+      )}
       <section className="card form">
-        <label>POI slug</label>
-        <input value={poiSlug} onChange={(e) => setPoiSlug(e.target.value)} placeholder="ba-den-peak" />
-        {poi && <div className="notice"><strong>{poi.title}</strong><br />{poi.shortDescription}</div>}
-        <label>QR code</label>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <input value={qrValue} onChange={(e) => setQrValue(e.target.value)} placeholder="NBD-PEAK-001" />
-          <button type="button" className="btn-secondary qr-btn" onClick={scanQr}><QrCodeIcon size={16} /> QR</button>
+        <div className="field">
+          <label className="field-label">POI slug</label>
+          <input className="input" value={poiSlug} onChange={(e) => setPoiSlug(e.target.value)} placeholder="ba-den-peak" />
         </div>
-        <div className="notice">GPS: {coords ? `${coords.lat.toFixed(5)}, ${coords.lng.toFixed(5)}` : 'Chưa có quyền vị trí'}</div>
-        <button className="primary" onClick={submit}><CheckIcon size={18} /> {labels.checkin}</button>
-        {message && <div className="notice">{message}</div>}
+        <div className="field">
+          <label className="field-label">QR code</label>
+          <div className="inline-field-row">
+            <input className="input" value={qrValue} onChange={(e) => setQrValue(e.target.value)} placeholder="NBD-PEAK-001" />
+            <button type="button" className="btn-secondary qr-btn" onClick={scanQr}><QrCodeIcon size={16} /> QR</button>
+          </div>
+        </div>
+        <div className="field">
+          <label className="field-label">GPS</label>
+          <div className="notice">{coords ? `${coords.lat.toFixed(5)}, ${coords.lng.toFixed(5)}` : 'Chưa có quyền vị trí'}</div>
+        </div>
+        <button className="btn" disabled={loading} onClick={submit}><CheckIcon size={18} /> {loading ? labels.loading : labels.checkin}</button>
+        {message && <div className={`notice ${message.includes('Chưa hợp lệ') || message === labels.error ? 'error' : ''}`}>{message}</div>}
       </section>
     </>
   );
@@ -687,17 +721,24 @@ function Profile({ locale, onBack }: { locale: Locale; onBack: () => void }) {
     <>
       <BackButton onBack={onBack} />
       <h2>{labels.profile}</h2>
-      <section className="card row">
-        <button className="primary" onClick={signIn}>Đăng nhập Zalo</button>
-        <button className="btn-secondary" onClick={signOut}>Đăng xuất</button>
-      </section>
       {message && <div className="notice">{message}</div>}
       {loading && <div className="empty">{labels.loading}</div>}
       {!loading && !profile && <div className="empty">{labels.empty}</div>}
       {profile && (
         <>
-          <section className="card">
-            <h3>{profile.user?.display_name || profile.user?.name || 'Du khách'}</h3>
+          <section className="card profile-card">
+            <div className="profile-head">
+              {profile.user?.avatar_url || profile.user?.avatar ? (
+                <img className="profile-avatar" src={profile.user.avatar_url || profile.user.avatar || ''} alt="" />
+              ) : (
+                <span className="list-row-icon"><UserIcon size={22} /></span>
+              )}
+              <div className="profile-info">
+                <strong>{profile.user?.display_name || profile.user?.name || 'Du khách'}</strong>
+                <span>{profile.user ? 'Đã đăng nhập bằng Zalo' : 'Hồ sơ du khách'}</span>
+              </div>
+              <button className={profile.user ? 'btn-secondary auth-pill' : 'primary auth-pill'} onClick={profile.user ? signOut : signIn}>{profile.user ? 'Đăng xuất' : 'Đăng nhập Zalo'}</button>
+            </div>
             <div className="stat-row">
               <div className="stat-cell"><div className="stat-value">{profile.stats?.checkins ?? 0}</div><div className="stat-label">Check-in</div></div>
               <div className="stat-cell"><div className="stat-value">{profile.stats?.reports ?? 0}</div><div className="stat-label">Phản ánh</div></div>
@@ -705,9 +746,14 @@ function Profile({ locale, onBack }: { locale: Locale; onBack: () => void }) {
             </div>
           </section>
           <h3 className="section-title">Huy hiệu</h3>
-          {profile.badges?.map((b: any) => <div className="card row" key={b.id}><span>{b.name}</span><span>{b.achieved ? 'Đạt' : '—'}</span></div>)}
+          <section className="card compact-list">
+            {profile.badges?.map((b: any) => <div className="compact-row" key={b.id}><span><span className="list-row-icon badge-icon"><TrophyIcon size={18} /></span>{b.name}</span><strong>{b.achieved ? <CheckIcon size={18} /> : '—'}</strong></div>)}
+          </section>
           <h3 className="section-title">Check-in gần đây</h3>
-          {profile.recentCheckins?.map((item: any) => <div className="card row" key={item.id}><span>{item.poiTitle}</span><span>{new Date(item.at).toLocaleDateString('vi-VN')}</span></div>)}
+          <section className="card compact-list">
+            {profile.recentCheckins?.length === 0 && <div className="empty">{labels.empty}</div>}
+            {profile.recentCheckins?.map((item: any) => <div className="compact-row" key={item.id}><span>{item.poiTitle}</span><time>{new Date(item.at).toLocaleString('vi-VN')}</time></div>)}
+          </section>
         </>
       )}
     </>

@@ -391,3 +391,124 @@ button.btn-secondary {
 .tag {
   overflow-wrap: anywhere;
 }
+
+.screen-title-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.screen-title-row h2 { margin: 0; }
+
+.inline-field-row {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+  min-width: 0;
+}
+.inline-field-row .input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.profile-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.profile-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+.profile-avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 999px;
+  object-fit: cover;
+  flex: 0 0 44px;
+}
+.profile-info {
+  display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+.profile-info strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 16px;
+}
+.profile-info span {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+.auth-pill {
+  width: auto;
+  min-width: 96px;
+  min-height: 36px;
+  flex: 0 0 auto;
+  border-radius: 999px;
+  padding: 8px 12px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+.compact-list {
+  padding-block: 4px;
+}
+.compact-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+}
+.compact-row:last-child { border-bottom: 0; }
+.compact-row > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: var(--text-primary);
+  font-size: 14px;
+}
+.compact-row > strong,
+.compact-row > time {
+  flex: 0 0 auto;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 600;
+  text-align: right;
+}
+.compact-row > strong { color: var(--success); }
+.badge-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: #fff7ed;
+  color: #d97706;
+}
+
+.chat-composer-inline .chat-send-btn {
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border-radius: 12px;
+}
+.chat-clear-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+@media (max-width: 360px) {
+  .profile-head { flex-wrap: wrap; }
+  .auth-pill { flex: 1 1 100%; }
+}
